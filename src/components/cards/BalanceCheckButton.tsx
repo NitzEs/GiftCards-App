@@ -49,12 +49,38 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
   }
 
   async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(cardNumber);
+    let success = false;
+
+    // Try modern Clipboard API first
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(cardNumber);
+        success = true;
+      } catch {
+        // fall through to execCommand
+      }
+    }
+
+    // Fallback: create a temporary textarea and execCommand('copy')
+    if (!success) {
+      const textarea = document.createElement('textarea');
+      textarea.value = cardNumber;
+      textarea.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        success = document.execCommand('copy');
+      } finally {
+        document.body.removeChild(textarea);
+      }
+    }
+
+    if (success) {
       setCopied(true);
       showToast(t('numberCopied'));
-    } catch {
-      // Fallback: select the text so user can copy manually
+    } else {
+      showToast('לא הצליח להעתיק — בחר את המספר ידנית', 'error');
     }
   }
 
