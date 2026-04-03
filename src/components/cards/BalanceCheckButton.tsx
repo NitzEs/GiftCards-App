@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/Toast';
-import { updateCardAmount } from '@/lib/firestore/cards';
 
 interface BalanceCheckButtonProps {
   cardId: string;
@@ -21,6 +20,7 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [cardNumber, setCardNumber] = useState('');
+  const [copied, setCopied] = useState(false);
 
   async function handleClick() {
     if (!user) return;
@@ -38,6 +38,7 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
 
       // Show modal with the number
       setCardNumber(cleanNumber);
+      setCopied(false);
       setShowModal(true);
 
     } catch {
@@ -47,13 +48,17 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
     }
   }
 
-  async function handleCopyAndOpen() {
+  async function handleCopy() {
     try {
       await navigator.clipboard.writeText(cardNumber);
+      setCopied(true);
       showToast(t('numberCopied'));
     } catch {
-      // clipboard failed — number is visible in the modal
+      // Fallback: select the text so user can copy manually
     }
+  }
+
+  function handleOpenMultipass() {
     window.open(MULTIPASS_URL, '_blank', 'noopener,noreferrer');
     setShowModal(false);
   }
@@ -65,15 +70,10 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
         <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
           <h3 className="font-semibold text-gray-900">מספר הכרטיס לבירור יתרה</h3>
 
-          {/* Number display — tap to select */}
+          {/* Number display — tap to copy */}
           <div
             className="bg-gray-50 border-2 border-blue-200 rounded-xl p-4 text-center cursor-pointer"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(cardNumber);
-                showToast(t('numberCopied'));
-              } catch { /* ignore */ }
-            }}
+            onClick={handleCopy}
           >
             <p className="font-mono text-2xl font-bold tracking-widest text-blue-700 select-all" dir="ltr">
               {cardNumber}
@@ -81,18 +81,31 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
             <p className="text-xs text-gray-400 mt-1">לחץ להעתקה</p>
           </div>
 
-          <p className="text-sm text-gray-500 text-center">
-            לאחר העתקה — הכנס מספר זה בשדה באתר מולטיפס
-          </p>
-
           <div className="flex flex-col gap-2">
-            <Button onClick={handleCopyAndOpen} className="w-full">
-              📋 העתק ופתח את מולטיפס
+            {/* Step 1: Copy */}
+            <Button onClick={handleCopy} className="w-full">
+              {copied ? '✅ הועתק!' : '📋 העתק מספר'}
             </Button>
+
+            {/* Step 2: Open — visually highlighted only after copying */}
+            <Button
+              onClick={handleOpenMultipass}
+              variant={copied ? 'primary' : 'secondary'}
+              className="w-full"
+            >
+              🌐 פתח את מולטיפס
+            </Button>
+
             <Button variant="secondary" onClick={() => setShowModal(false)} className="w-full">
               {t('cancel')}
             </Button>
           </div>
+
+          {!copied && (
+            <p className="text-xs text-gray-400 text-center">
+              שלב 1: העתק את המספר ← שלב 2: פתח מולטיפס
+            </p>
+          )}
         </div>
       </div>
     );
