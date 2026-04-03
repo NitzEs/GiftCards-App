@@ -19,6 +19,8 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
   const { user } = useAuth();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [cardNumber, setCardNumber] = useState('');
 
   async function handleClick() {
     if (!user) return;
@@ -26,72 +28,74 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
     try {
       const idToken = await user.getIdToken();
 
-      // 1. Get the decrypted card number from server
+      // Get the decrypted card number from server
       const numRes = await fetch(`/api/cards/${cardId}/number`, {
         headers: { Authorization: `Bearer ${idToken}` },
       });
       if (!numRes.ok) throw new Error('fetch-number-failed');
       const { number } = await numRes.json() as { number: string };
-
-      // 2. Strip dashes and copy to clipboard
       const cleanNumber = number.replace(/-/g, '');
-      let copied = false;
-      try {
-        await navigator.clipboard.writeText(cleanNumber);
-        copied = true;
-      } catch {
-        // Fallback: create a temporary input element
-        const input = document.createElement('input');
-        input.value = cleanNumber;
-        input.style.position = 'fixed';
-        input.style.opacity = '0';
-        document.body.appendChild(input);
-        input.focus();
-        input.select();
-        try {
-          document.execCommand('copy');
-          copied = true;
-        } catch { /* ignore */ }
-        document.body.removeChild(input);
-      }
 
-      // 3. Open multipass in new tab
-      window.open(MULTIPASS_URL, '_blank', 'noopener,noreferrer');
+      // Show modal with the number
+      setCardNumber(cleanNumber);
+      setShowModal(true);
 
-      if (copied) {
-        showToast(t('numberCopied'));
-      } else {
-        // Show number in prompt so user can copy manually
-        window.prompt('העתק את מספר הכרטיס:', cleanNumber);
-      }
-
-      // 4. Try auto-fetch balance in background
-      try {
-        const balRes = await fetch(`/api/balance?cardId=${cardId}`, {
-          headers: { Authorization: `Bearer ${idToken}` },
-        });
-        if (balRes.ok) {
-          const { balance } = await balRes.json() as { balance: number };
-          if (typeof balance === 'number' && !isNaN(balance)) {
-            // Offer to update
-            const shouldUpdate = window.confirm(
-              `${t('updateBalanceFromSite')}: ₪${balance}?`
-            );
-            if (shouldUpdate) {
-              await updateCardAmount(cardId, balance);
-              onBalanceFetched?.(balance);
-              showToast(t('balanceFetched'));
-            }
-          }
-        }
-      } catch {
-        // Auto-fetch failed silently — user still has number in clipboard
-      }
     } catch {
       showToast(t('genericError'), 'error');
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleCopyAndOpen() {
+    try {
+      await navigator.clipboard.writeText(cardNumber);
+      showToast(t('numberCopied'));
+    } catch {
+      // clipboard failed — number is visible in the modal
+    }
+    window.open(MULTIPASS_URL, '_blank', 'noopener,noreferrer');
+    setShowModal(false);
+  }
+
+  if (showModal) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/40" onClick={() => setShowModal(false)} />
+        <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
+          <h3 className="font-semibold text-gray-900">מספר הכרטיס לבירור יתרה</h3>
+
+          {/* Number display — tap to select */}
+          <div
+            className="bg-gray-50 border-2 border-blue-200 rounded-xl p-4 text-center cursor-pointer"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(cardNumber);
+                showToast(t('numberCopied'));
+              } catch { /* ignore */ }
+            }}
+          >
+            <p className="font-mono text-2xl font-bold tracking-widest text-blue-700 select-all" dir="ltr">
+              {cardNumber}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">לחץ להעתקה</p>
+          </div>
+
+          <p className="text-sm text-gray-500 text-center">
+            לאחר העתקה — הכנס מספר זה בשדה באתר מולטיפס
+          </p>
+
+          <div className="flex flex-col gap-2">
+            <Button onClick={handleCopyAndOpen} className="w-full">
+              📋 העתק ופתח את מולטיפס
+            </Button>
+            <Button variant="secondary" onClick={() => setShowModal(false)} className="w-full">
+              {t('cancel')}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
