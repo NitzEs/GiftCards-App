@@ -20,15 +20,16 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [cardNumber, setCardNumber] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [debugMsg, setDebugMsg] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-select the input when modal opens
+  // Select the number as soon as the modal appears
   useEffect(() => {
-    if (showModal && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+    if (showModal) {
+      // Small delay so the DOM is ready
+      setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 50);
     }
   }, [showModal]);
 
@@ -42,10 +43,7 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
       });
       if (!numRes.ok) throw new Error('fetch-number-failed');
       const { number } = await numRes.json() as { number: string };
-      const cleanNumber = number.replace(/-/g, '');
-      setCardNumber(cleanNumber);
-      setCopied(false);
-      setDebugMsg('');
+      setCardNumber(number.replace(/-/g, ''));
       setShowModal(true);
     } catch {
       showToast(t('genericError'), 'error');
@@ -54,43 +52,9 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
     }
   }
 
-  function handleCopy() {
-    console.log('[Copy] cardNumber:', cardNumber);
-    console.log('[Copy] isSecureContext:', window.isSecureContext);
-    console.log('[Copy] clipboard available:', !!navigator.clipboard);
-
-    // Plain synchronous call — no await before this, user gesture intact
-    navigator.clipboard.writeText(cardNumber)
-      .then(() => {
-        console.log('[Copy] clipboard.writeText resolved OK');
-        setCopied(true);
-        setDebugMsg('clipboard-api: OK');
-        showToast(t('numberCopied'));
-      })
-      .catch((err: unknown) => {
-        const msg = String(err);
-        console.error('[Copy] clipboard.writeText failed:', msg);
-        setDebugMsg('clipboard-api FAILED: ' + msg);
-
-        // execCommand fallback
-        const input = inputRef.current;
-        if (input) {
-          input.focus();
-          input.select();
-          input.setSelectionRange(0, 99999);
-          let ok = false;
-          try { ok = document.execCommand('copy'); } catch { /* ignore */ }
-          console.log('[Copy] execCommand result:', ok);
-          if (ok) {
-            setCopied(true);
-            setDebugMsg('execCommand: OK');
-            showToast(t('numberCopied'));
-          } else {
-            setDebugMsg('execCommand: false — לחץ Ctrl+C');
-            showToast('לחץ Ctrl+C — המספר מסומן', 'error');
-          }
-        }
-      });
+  function selectNumber() {
+    inputRef.current?.focus();
+    inputRef.current?.select();
   }
 
   function handleOpenMultipass() {
@@ -103,38 +67,38 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/40" onClick={() => setShowModal(false)} />
         <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
-          <h3 className="font-semibold text-gray-900">מספר הכרטיס לבירור יתרה</h3>
+          <h3 className="font-semibold text-gray-900 text-center">מספר הכרטיס לבירור יתרה</h3>
 
-          {/* Visible input — auto-selected, also serves as copy source */}
-          <div className="bg-gray-50 border-2 border-blue-200 rounded-xl p-4 text-center">
+          {/* Number — shown in a real input so it can be selected & copied with Ctrl+C */}
+          <div
+            className="bg-blue-50 border-2 border-blue-300 rounded-xl p-4 text-center cursor-text"
+            onClick={selectNumber}
+          >
             <input
               ref={inputRef}
               readOnly
               value={cardNumber}
               dir="ltr"
-              className="w-full bg-transparent font-mono text-2xl font-bold tracking-widest text-blue-700 text-center outline-none cursor-pointer"
-              onClick={handleCopy}
+              className="w-full bg-transparent font-mono text-2xl font-bold tracking-widest text-blue-700 text-center outline-none select-all"
             />
-            <p className="text-xs text-gray-400 mt-1">לחץ להעתקה / Ctrl+C</p>
           </div>
 
-          {/* Debug message */}
-          {debugMsg && (
-            <p className="text-xs text-center break-all px-1" style={{ color: debugMsg.includes('OK') ? 'green' : 'orange' }}>
-              {debugMsg}
+          {/* Clear instruction */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center">
+            <p className="text-sm font-medium text-yellow-800">
+              המספר מסומן — לחץ <kbd className="bg-white border border-yellow-400 rounded px-1.5 py-0.5 font-mono text-xs">Ctrl+C</kbd> להעתקה
             </p>
-          )}
+            <p className="text-xs text-yellow-600 mt-1">
+              לאחר מכן פתח מולטיפס והדבק עם Ctrl+V
+            </p>
+          </div>
 
           <div className="flex flex-col gap-2">
-            <Button onClick={handleCopy} className="w-full">
-              {copied ? '✅ הועתק!' : '📋 העתק מספר'}
+            <Button onClick={selectNumber} variant="secondary" className="w-full">
+              🖱️ סמן שוב את המספר
             </Button>
 
-            <Button
-              onClick={handleOpenMultipass}
-              variant={copied ? 'primary' : 'secondary'}
-              className="w-full"
-            >
+            <Button onClick={handleOpenMultipass} className="w-full">
               🌐 פתח את מולטיפס
             </Button>
 
@@ -142,10 +106,6 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
               {t('cancel')}
             </Button>
           </div>
-
-          <p className="text-xs text-gray-400 text-center">
-            {copied ? 'הועתק — עכשיו פתח מולטיפס והדבק' : 'המספר מסומן — אפשר ללחוץ Ctrl+C ישירות'}
-          </p>
         </div>
       </div>
     );
