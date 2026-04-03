@@ -54,18 +54,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Handle redirect result after Google sign-in
-    getRedirectResult(auth).then(async (result) => {
-      if (result?.user) {
-        await upsertUserDoc(result.user);
-      }
-    }).catch(() => {});
+    let unsubscribed = false;
 
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
-    return unsub;
+    // First handle redirect result, then start auth listener
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          await upsertUserDoc(result.user);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (unsubscribed) return;
+        // Start listening AFTER redirect result is handled
+        const unsub = onAuthStateChanged(auth, (u) => {
+          setUser(u);
+          setLoading(false);
+        });
+        // Store unsub for cleanup
+        (window as unknown as Record<string, unknown>).__authUnsub = unsub;
+      });
+
+    return () => {
+      unsubscribed = true;
+      const unsub = (window as unknown as Record<string, unknown>).__authUnsub as (() => void) | undefined;
+      if (unsub) unsub();
+    };
   }, []);
 
   async function signInWithEmail(email: string, password: string) {
