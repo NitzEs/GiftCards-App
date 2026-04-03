@@ -48,40 +48,33 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
     }
   }
 
-  async function handleCopy() {
+  function handleCopy() {
+    // Must be synchronous — execCommand requires an active user gesture.
+    // Awaiting the clipboard API first would consume the gesture context,
+    // causing the execCommand fallback to fail silently.
     let success = false;
-
-    // Try modern Clipboard API first
-    if (navigator.clipboard && window.isSecureContext) {
-      try {
-        await navigator.clipboard.writeText(cardNumber);
-        success = true;
-      } catch {
-        // fall through to execCommand
-      }
-    }
-
-    // Fallback: create a temporary textarea and execCommand('copy')
-    if (!success) {
-      const textarea = document.createElement('textarea');
-      textarea.value = cardNumber;
-      textarea.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      try {
-        success = document.execCommand('copy');
-      } finally {
-        document.body.removeChild(textarea);
-      }
+    const textarea = document.createElement('textarea');
+    textarea.value = cardNumber;
+    textarea.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      success = document.execCommand('copy');
+    } finally {
+      document.body.removeChild(textarea);
     }
 
     if (success) {
       setCopied(true);
       showToast(t('numberCopied'));
-    } else {
-      showToast('לא הצליח להעתיק — בחר את המספר ידנית', 'error');
+      return;
     }
+
+    // execCommand failed — async Clipboard API as last resort
+    navigator.clipboard?.writeText(cardNumber)
+      .then(() => { setCopied(true); showToast(t('numberCopied')); })
+      .catch(() => { showToast('לא הצליח להעתיק — בחר את המספר ידנית', 'error'); });
   }
 
   function handleOpenMultipass() {
