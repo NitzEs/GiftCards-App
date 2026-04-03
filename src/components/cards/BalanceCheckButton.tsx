@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
@@ -21,7 +21,16 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
   const [showModal, setShowModal] = useState(false);
   const [cardNumber, setCardNumber] = useState('');
   const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-select the number when modal opens — user can press Ctrl+C immediately
+  useEffect(() => {
+    if (showModal && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [showModal]);
 
   async function handleClick() {
     if (!user) return;
@@ -38,6 +47,7 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
 
       setCardNumber(cleanNumber);
       setCopied(false);
+      setCopyStatus('');
       setShowModal(true);
 
     } catch {
@@ -47,30 +57,43 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
     }
   }
 
-  function handleCopy() {
-    // Use the already-rendered input element — most reliable copy approach.
-    // Dynamic textarea creation can fail; a ref to a live DOM element works better.
-    const input = inputRef.current;
-    if (!input) return;
-
-    input.select();
-    input.setSelectionRange(0, 99999); // needed on some mobile browsers
-
-    let success = false;
-    try {
-      success = document.execCommand('copy');
-    } catch { /* ignore */ }
-
-    if (success) {
-      setCopied(true);
-      showToast(t('numberCopied'));
-      return;
+  async function handleCopy() {
+    // Re-select the input before trying to copy
+    if (inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+      inputRef.current.setSelectionRange(0, 99999);
     }
 
-    // execCommand not available — try modern Clipboard API
-    navigator.clipboard?.writeText(cardNumber)
-      .then(() => { setCopied(true); showToast(t('numberCopied')); })
-      .catch(() => { showToast('לא הצליח להעתיק — בחר את המספר ידנית', 'error'); });
+    // Try modern Clipboard API — called directly from click, no preceding await
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(cardNumber);
+        setCopied(true);
+        setCopyStatus('clipboard-api');
+        showToast(t('numberCopied'));
+        return;
+      } catch (err) {
+        setCopyStatus('clipboard-api-failed: ' + String(err));
+      }
+    }
+
+    // Fallback: execCommand on the already-selected input
+    try {
+      const ok = document.execCommand('copy');
+      if (ok) {
+        setCopied(true);
+        setCopyStatus('execCommand');
+        showToast(t('numberCopied'));
+        return;
+      }
+      setCopyStatus('execCommand-returned-false');
+    } catch (err) {
+      setCopyStatus('execCommand-threw: ' + String(err));
+    }
+
+    // Both failed — number is selected, user can press Ctrl+C manually
+    showToast('לא הצליח להעתיק אוטומטית — לחץ Ctrl+C', 'error');
   }
 
   function handleOpenMultipass() {
@@ -85,26 +108,23 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
         <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
           <h3 className="font-semibold text-gray-900">מספר הכרטיס לבירור יתרה</h3>
 
-          {/* Visible number + hidden input for reliable clipboard copy */}
-          <div
-            className="bg-gray-50 border-2 border-blue-200 rounded-xl p-4 text-center cursor-pointer"
-            onClick={handleCopy}
-          >
-            <p className="font-mono text-2xl font-bold tracking-widest text-blue-700" dir="ltr">
-              {cardNumber}
-            </p>
+          {/* Visible input — styled like before, auto-selected on open */}
+          <div className="bg-gray-50 border-2 border-blue-200 rounded-xl p-4 text-center">
+            <input
+              ref={inputRef}
+              readOnly
+              value={cardNumber}
+              dir="ltr"
+              className="w-full bg-transparent font-mono text-2xl font-bold tracking-widest text-blue-700 text-center outline-none cursor-pointer select-all"
+              onClick={handleCopy}
+            />
             <p className="text-xs text-gray-400 mt-1">לחץ להעתקה</p>
           </div>
 
-          {/* Hidden input — used as the copy source via ref */}
-          <input
-            ref={inputRef}
-            readOnly
-            value={cardNumber}
-            aria-hidden="true"
-            tabIndex={-1}
-            style={{ position: 'absolute', left: '-9999px', top: 0, opacity: 0 }}
-          />
+          {/* Debug info — remove after fix confirmed */}
+          {copyStatus ? (
+            <p className="text-xs text-orange-500 text-center break-all">{copyStatus}</p>
+          ) : null}
 
           <div className="flex flex-col gap-2">
             <Button onClick={handleCopy} className="w-full">
@@ -126,7 +146,7 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
 
           {!copied && (
             <p className="text-xs text-gray-400 text-center">
-              שלב 1: העתק את המספר ← שלב 2: פתח מולטיפס
+              המספר מסומן — אפשר ללחוץ Ctrl+C ישירות
             </p>
           )}
         </div>
