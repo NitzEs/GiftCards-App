@@ -13,10 +13,8 @@ export function GoogleSignInButton() {
     try {
       await signInWithGoogle();
       router.replace('/dashboard');
-    } catch (err: unknown) {
-      const code = (err as { code?: string })?.code;
-      const msg = (err as { message?: string })?.message;
-      alert(`Google Sign-In Error:\nCode: ${code}\nMessage: ${msg}`);
+    } catch {
+      // sign-in cancelled or failed silently
     }
   }
 
