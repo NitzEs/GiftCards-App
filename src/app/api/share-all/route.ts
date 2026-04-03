@@ -18,12 +18,38 @@ export async function POST(req: NextRequest) {
     const db = getAdminDb();
 
     // Look up invitee
-    let inviteeUid: string;
+    let inviteeUid: string | null = null;
     try {
       const inviteeUser = await getAdminAuth().getUserByEmail(inviteeEmail);
       inviteeUid = inviteeUser.uid;
     } catch {
-      return NextResponse.json({ error: 'USER_NOT_FOUND' }, { status: 404 });
+      // User not registered yet — create a pending invitation below
+    }
+
+    if (!inviteeUid) {
+      // Fetch inviter's name for the invitation email
+      const inviterSnap = await db.collection('users').doc(myUid).get();
+      const inviterName: string = inviterSnap.data()?.displayName || decoded.email || 'מישהו';
+
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+
+      // Store pending invitation so it auto-applies when invitee registers
+      await db.collection('shareInvitations').add({
+        inviterUid: myUid,
+        inviterName,
+        inviteeEmail,
+        status: 'pending',
+        createdAt: FieldValue.serverTimestamp(),
+        expiresAt,
+      });
+
+      const appUrl = new URL(req.url).origin;
+      return NextResponse.json({
+        pending: true,
+        inviteLink: `${appUrl}/register`,
+        inviterName,
+      });
     }
 
     if (inviteeUid === myUid) {

@@ -48,6 +48,18 @@ async function upsertUserDoc(user: User) {
   }
 }
 
+async function applyPendingShares(user: User) {
+  try {
+    const idToken = await user.getIdToken();
+    await fetch('/api/share-all/apply-pending', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+  } catch {
+    // Non-critical
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,12 +81,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     provider.setCustomParameters({ prompt: 'select_account' });
     const result = await signInWithPopup(auth, provider);
     await upsertUserDoc(result.user);
+    applyPendingShares(result.user); // fire-and-forget
   }
 
   async function register(email: string, password: string, displayName: string) {
     const result = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(result.user, { displayName });
     await upsertUserDoc(result.user);
+    applyPendingShares(result.user); // fire-and-forget
   }
 
   async function signOut() {
