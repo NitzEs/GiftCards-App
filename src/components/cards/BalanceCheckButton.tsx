@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
@@ -21,6 +21,7 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
   const [showModal, setShowModal] = useState(false);
   const [cardNumber, setCardNumber] = useState('');
   const [copied, setCopied] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleClick() {
     if (!user) return;
@@ -28,7 +29,6 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
     try {
       const idToken = await user.getIdToken();
 
-      // Get the decrypted card number from server
       const numRes = await fetch(`/api/cards/${cardId}/number`, {
         headers: { Authorization: `Bearer ${idToken}` },
       });
@@ -36,7 +36,6 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
       const { number } = await numRes.json() as { number: string };
       const cleanNumber = number.replace(/-/g, '');
 
-      // Show modal with the number
       setCardNumber(cleanNumber);
       setCopied(false);
       setShowModal(true);
@@ -49,21 +48,18 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
   }
 
   function handleCopy() {
-    // Must be synchronous — execCommand requires an active user gesture.
-    // Awaiting the clipboard API first would consume the gesture context,
-    // causing the execCommand fallback to fail silently.
+    // Use the already-rendered input element — most reliable copy approach.
+    // Dynamic textarea creation can fail; a ref to a live DOM element works better.
+    const input = inputRef.current;
+    if (!input) return;
+
+    input.select();
+    input.setSelectionRange(0, 99999); // needed on some mobile browsers
+
     let success = false;
-    const textarea = document.createElement('textarea');
-    textarea.value = cardNumber;
-    textarea.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
     try {
       success = document.execCommand('copy');
-    } finally {
-      document.body.removeChild(textarea);
-    }
+    } catch { /* ignore */ }
 
     if (success) {
       setCopied(true);
@@ -71,7 +67,7 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
       return;
     }
 
-    // execCommand failed — async Clipboard API as last resort
+    // execCommand not available — try modern Clipboard API
     navigator.clipboard?.writeText(cardNumber)
       .then(() => { setCopied(true); showToast(t('numberCopied')); })
       .catch(() => { showToast('לא הצליח להעתיק — בחר את המספר ידנית', 'error'); });
@@ -89,24 +85,32 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
         <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
           <h3 className="font-semibold text-gray-900">מספר הכרטיס לבירור יתרה</h3>
 
-          {/* Number display — tap to copy */}
+          {/* Visible number + hidden input for reliable clipboard copy */}
           <div
             className="bg-gray-50 border-2 border-blue-200 rounded-xl p-4 text-center cursor-pointer"
             onClick={handleCopy}
           >
-            <p className="font-mono text-2xl font-bold tracking-widest text-blue-700 select-all" dir="ltr">
+            <p className="font-mono text-2xl font-bold tracking-widest text-blue-700" dir="ltr">
               {cardNumber}
             </p>
             <p className="text-xs text-gray-400 mt-1">לחץ להעתקה</p>
           </div>
 
+          {/* Hidden input — used as the copy source via ref */}
+          <input
+            ref={inputRef}
+            readOnly
+            value={cardNumber}
+            aria-hidden="true"
+            tabIndex={-1}
+            style={{ position: 'absolute', left: '-9999px', top: 0, opacity: 0 }}
+          />
+
           <div className="flex flex-col gap-2">
-            {/* Step 1: Copy */}
             <Button onClick={handleCopy} className="w-full">
               {copied ? '✅ הועתק!' : '📋 העתק מספר'}
             </Button>
 
-            {/* Step 2: Open — visually highlighted only after copying */}
             <Button
               onClick={handleOpenMultipass}
               variant={copied ? 'primary' : 'secondary'}
