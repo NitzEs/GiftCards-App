@@ -6,8 +6,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   updateProfile,
@@ -54,32 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let unsubscribed = false;
-
-    // First handle redirect result, then start auth listener
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (result?.user) {
-          await upsertUserDoc(result.user);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (unsubscribed) return;
-        // Start listening AFTER redirect result is handled
-        const unsub = onAuthStateChanged(auth, (u) => {
-          setUser(u);
-          setLoading(false);
-        });
-        // Store unsub for cleanup
-        (window as unknown as Record<string, unknown>).__authUnsub = unsub;
-      });
-
-    return () => {
-      unsubscribed = true;
-      const unsub = (window as unknown as Record<string, unknown>).__authUnsub as (() => void) | undefined;
-      if (unsub) unsub();
-    };
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
+    });
+    return unsub;
   }, []);
 
   async function signInWithEmail(email: string, password: string) {
@@ -88,8 +66,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signInWithGoogle() {
     const provider = new GoogleAuthProvider();
-    await signInWithRedirect(auth, provider);
-    // Page will redirect — result handled in useEffect via getRedirectResult
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const result = await signInWithPopup(auth, provider);
+    await upsertUserDoc(result.user);
   }
 
   async function register(email: string, password: string, displayName: string) {
