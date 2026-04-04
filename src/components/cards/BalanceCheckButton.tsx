@@ -28,6 +28,7 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
   const [savingBalance, setSavingBalance] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-select the number when modal opens
   useEffect(() => {
     if (showModal) {
       setTimeout(() => {
@@ -58,6 +59,19 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
     }
   }
 
+  // Copy number to clipboard then open multipass (works great on mobile)
+  async function handleCopyAndOpen() {
+    try {
+      await navigator.clipboard.writeText(cardNumber);
+      showToast(t('numberCopied'));
+    } catch {
+      // clipboard blocked (e.g. corporate PC) — number is visible below
+    }
+    window.open(MULTIPASS_URL, '_blank', 'noopener,noreferrer');
+    setShowModal(false);
+  }
+
+  // Auto-fetch balance from multipass server-side
   async function handleAutoFetch() {
     if (!user) return;
     setFetchState('loading');
@@ -90,16 +104,6 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
     }
   }
 
-  function selectNumber() {
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }
-
-  function handleOpenMultipass() {
-    window.open(MULTIPASS_URL, '_blank', 'noopener,noreferrer');
-    setShowModal(false);
-  }
-
   if (showModal) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -107,85 +111,85 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
         <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
           <h3 className="font-semibold text-gray-900 text-center">בירור יתרה</h3>
 
-          {/* ── Option A: Auto-fetch ── */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col gap-3">
-            <p className="text-sm font-medium text-blue-800 text-center">⚡ שאיבה אוטומטית</p>
+          {/* ── Auto-fetch section ── */}
+          {fetchState === 'idle' && (
+            <Button onClick={handleAutoFetch} variant="secondary" className="w-full">
+              ⚡ שאוב יתרה אוטומטית
+            </Button>
+          )}
 
-            {fetchState === 'idle' && (
-              <Button onClick={handleAutoFetch} className="w-full">
-                שאוב יתרה אוטומטית
-              </Button>
-            )}
+          {fetchState === 'loading' && (
+            <div className="flex items-center justify-center gap-2 py-2 text-blue-600">
+              <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+              </svg>
+              <span className="text-sm">מושך יתרה מהאתר...</span>
+            </div>
+          )}
 
-            {fetchState === 'loading' && (
-              <div className="flex items-center justify-center gap-2 py-2 text-blue-600">
-                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                </svg>
-                <span className="text-sm">מושך יתרה...</span>
-              </div>
-            )}
-
-            {fetchState === 'success' && fetchedBalance !== null && (
-              <div className="flex flex-col gap-2">
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 mb-1">יתרה נמצאה</p>
-                  <p className="text-3xl font-bold text-green-600">₪{fetchedBalance.toLocaleString()}</p>
-                </div>
-                <Button onClick={handleSaveBalance} loading={savingBalance} className="w-full">
-                  💾 עדכן יתרה בכרטיס
-                </Button>
-                <Button variant="secondary" onClick={() => setShowModal(false)} className="w-full">
-                  {t('cancel')}
-                </Button>
-              </div>
-            )}
-
-            {fetchState === 'failed' && (
+          {fetchState === 'success' && fetchedBalance !== null && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex flex-col gap-3">
               <div className="text-center">
-                <p className="text-xs text-orange-600 mb-2">
-                  לא הצליח לשאוב אוטומטית — השתמש בשיטה הידנית למטה
-                </p>
-                <Button variant="secondary" onClick={handleAutoFetch} className="w-full text-sm">
-                  נסה שוב
-                </Button>
+                <p className="text-xs text-gray-500 mb-1">יתרה נמצאה</p>
+                <p className="text-3xl font-bold text-green-600">₪{fetchedBalance.toLocaleString()}</p>
               </div>
-            )}
-          </div>
+              <Button onClick={handleSaveBalance} loading={savingBalance} className="w-full">
+                💾 עדכן יתרה בכרטיס
+              </Button>
+              <Button variant="secondary" onClick={() => setShowModal(false)} className="w-full">
+                {t('cancel')}
+              </Button>
+            </div>
+          )}
 
-          {/* ── Option B: Manual (always visible) ── */}
+          {fetchState === 'failed' && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-center">
+              <p className="text-xs text-orange-700 mb-2">השאיבה האוטומטית לא הצליחה</p>
+              <Button variant="secondary" onClick={handleAutoFetch} className="w-full text-sm">
+                נסה שוב
+              </Button>
+            </div>
+          )}
+
+          {/* ── Manual section (always shown unless auto-fetch succeeded) ── */}
           {fetchState !== 'success' && (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 border-t border-gray-200" />
-                <span className="text-xs text-gray-400">או ידנית</span>
-                <div className="flex-1 border-t border-gray-200" />
-              </div>
+            <>
+              {fetchState !== 'idle' && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 border-t border-gray-200" />
+                  <span className="text-xs text-gray-400">או ידנית</span>
+                  <div className="flex-1 border-t border-gray-200" />
+                </div>
+              )}
 
+              {/* Card number display — auto-selected for Ctrl+C */}
               <div
-                className="bg-gray-50 border-2 border-gray-200 rounded-xl p-3 text-center cursor-text"
-                onClick={selectNumber}
+                className="bg-gray-50 border-2 border-blue-200 rounded-xl p-3 text-center cursor-text"
+                onClick={() => { inputRef.current?.focus(); inputRef.current?.select(); }}
               >
                 <input
                   ref={inputRef}
                   readOnly
                   value={cardNumber}
                   dir="ltr"
-                  className="w-full bg-transparent font-mono text-xl font-bold tracking-widest text-gray-700 text-center outline-none select-all"
+                  className="w-full bg-transparent font-mono text-xl font-bold tracking-widest text-blue-700 text-center outline-none select-all"
                 />
-                <p className="text-xs text-gray-400 mt-1">מסומן — לחץ Ctrl+C להעתקה</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  מסומן — לחץ Ctrl+C, או לחץ על הכפתור הירוק לסלולר
+                </p>
               </div>
 
-              <div className="flex gap-2">
-                <Button onClick={handleOpenMultipass} className="flex-1">
-                  🌐 פתח מולטיפס
+              <div className="flex flex-col gap-2">
+                {/* Primary: copy + open (works on mobile) */}
+                <Button onClick={handleCopyAndOpen} className="w-full">
+                  📋 העתק ופתח מולטיפס
                 </Button>
-                <Button variant="secondary" onClick={() => setShowModal(false)} className="flex-1">
+                <Button variant="secondary" onClick={() => setShowModal(false)} className="w-full">
                   {t('cancel')}
                 </Button>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
