@@ -92,14 +92,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function signInWithGoogle() {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    // Use redirect on production (Vercel), popup on localhost
-    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-      await signInWithRedirect(auth, provider);
-    } else {
-      const result = await signInWithPopup(auth, provider);
-      await upsertUserDoc(result.user);
-      applyPendingShares(result.user);
-    }
+    const result = await signInWithPopup(auth, provider);
+    await upsertUserDoc(result.user);
+    applyPendingShares(result.user);
   }
 
   async function signInWithGoogleToken(idToken: string) {
