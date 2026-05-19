@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!;
@@ -13,7 +12,9 @@ declare global {
         id: {
           initialize: (config: {
             client_id: string;
-            callback: (r: { credential: string }) => void;
+            ux_mode?: string;
+            login_uri?: string;
+            callback?: (r: { credential: string }) => void;
           }) => void;
           renderButton: (el: HTMLElement, config: object) => void;
         };
@@ -24,25 +25,29 @@ declare global {
 
 export function GoogleSignInButton() {
   const { signInWithGoogleToken } = useAuth();
-  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Handle return from Google redirect (credential in query param)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gisCredential = params.get('_gis');
+    if (gisCredential) {
+      window.history.replaceState({}, '', '/login');
+      signInWithGoogleToken(gisCredential).catch(() => {});
+    }
+  }, [signInWithGoogleToken]);
 
   useEffect(() => {
     function initButton() {
       if (!window.google?.accounts?.id || !containerRef.current) return;
 
+      const loginUri = `${window.location.origin}/api/auth/google`;
+
       window.google.accounts.id.initialize({
         client_id: CLIENT_ID,
-        callback: async ({ credential }) => {
-          try {
-            await signInWithGoogleToken(credential);
-            router.replace('/dashboard');
-          } catch {}
-        },
+        ux_mode: 'redirect',
+        login_uri: loginUri,
       });
-
-      // Auto-show One Tap widget (same flow other sites use)
-      window.google.accounts.id.prompt();
 
       window.google.accounts.id.renderButton(containerRef.current, {
         type: 'standard',
@@ -66,7 +71,7 @@ export function GoogleSignInButton() {
     script.defer = true;
     script.onload = initButton;
     document.head.appendChild(script);
-  }, [signInWithGoogleToken, router]);
+  }, []);
 
   return <div ref={containerRef} className="w-full" />;
 }
