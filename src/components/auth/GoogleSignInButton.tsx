@@ -33,7 +33,6 @@ export function GoogleSignInButton() {
 
       window.google.accounts.id.initialize({
         client_id: CLIENT_ID,
-        use_fedcm_for_prompt: true,
         callback: async ({ credential }) => {
           try {
             await signInWithGoogleToken(credential);
@@ -41,6 +40,9 @@ export function GoogleSignInButton() {
           } catch {}
         },
       });
+
+      // Auto-show One Tap widget (same flow other sites use)
+      window.google.accounts.id.prompt();
 
       window.google.accounts.id.renderButton(containerRef.current, {
         type: 'standard',
