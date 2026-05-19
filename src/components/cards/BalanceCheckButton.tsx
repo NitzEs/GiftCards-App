@@ -103,16 +103,16 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
   if (showModal) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/40" onClick={() => setShowModal(false)} />
-        <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
-          <h3 className="font-semibold text-gray-900 text-center">בירור יתרה</h3>
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+        <div className="relative bg-zinc-900 border border-white/8 rounded-2xl shadow-2xl shadow-black/60 w-full max-w-sm p-6 flex flex-col gap-4">
+          <h3 className="font-semibold text-zinc-100 text-center">בירור יתרה</h3>
 
           {/* Step 1: Copy number and open multipass */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col gap-3">
-            <p className="text-xs font-medium text-blue-700 text-center">שלב 1 — העתק את המספר ובדוק יתרה</p>
+          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 flex flex-col gap-3">
+            <p className="text-xs font-medium text-indigo-400 text-center">שלב 1 — העתק את המספר ובדוק יתרה</p>
 
             <div
-              className="bg-white border-2 border-blue-300 rounded-xl p-3 text-center cursor-text"
+              className="bg-zinc-800/60 border border-white/8 rounded-xl p-3 text-center cursor-text"
               onClick={() => { inputRef.current?.focus(); inputRef.current?.select(); }}
             >
               <input
@@ -120,9 +120,9 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
                 readOnly
                 value={cardNumber}
                 dir="ltr"
-                className="w-full bg-transparent font-mono text-xl font-bold tracking-widest text-blue-700 text-center outline-none select-all"
+                className="w-full bg-transparent font-mono text-xl font-bold tracking-widest text-indigo-300 text-center outline-none select-all"
               />
-              <p className="text-xs text-gray-400 mt-1">מסומן — Ctrl+C במחשב</p>
+              <p className="text-xs text-zinc-600 mt-1">מסומן — Ctrl+C במחשב</p>
             </div>
 
             <Button onClick={handleCopyAndOpen} className="w-full">
@@ -131,11 +131,11 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
           </div>
 
           {/* Step 2: Enter balance after checking */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
-            <p className="text-xs font-medium text-gray-600 text-center">שלב 2 — הכנס את היתרה שראית באתר</p>
+          <div className="bg-zinc-800/40 border border-white/5 rounded-xl p-4 flex flex-col gap-3">
+            <p className="text-xs font-medium text-zinc-400 text-center">שלב 2 — הכנס את היתרה שראית באתר</p>
 
             <div className="flex gap-2 items-center">
-              <span className="text-gray-500 font-medium">₪</span>
+              <span className="text-zinc-400 font-medium">₪</span>
               <input
                 type="number"
                 min="0"
@@ -144,7 +144,7 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
                 value={newBalance}
                 onChange={(e) => setNewBalance(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSaveBalance()}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-lg font-medium text-center outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                className="flex-1 bg-zinc-800/60 border border-white/8 rounded-lg px-3 py-2 text-lg font-medium text-zinc-100 text-center outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-zinc-600"
                 dir="ltr"
               />
             </div>

@@ -8,23 +8,14 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
 }
 
-export function Button({
-  variant = 'primary',
-  size = 'md',
-  loading,
-  disabled,
-  children,
-  className = '',
-  ...props
-}: ButtonProps) {
-  const base =
-    'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+export function Button({ variant = 'primary', size = 'md', loading, disabled, children, className = '', ...props }: ButtonProps) {
+  const base = 'inline-flex items-center justify-center font-medium rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed';
 
   const variants = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-400',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
-    ghost: 'text-gray-600 hover:bg-gray-100 focus:ring-gray-400',
+    primary: 'bg-indigo-500 text-white hover:bg-indigo-400 focus:ring-indigo-500 shadow-lg shadow-indigo-500/20',
+    secondary: 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700 focus:ring-zinc-500 border border-white/5',
+    danger: 'bg-red-500/10 text-red-400 hover:bg-red-500/20 focus:ring-red-500 border border-red-500/20',
+    ghost: 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200 focus:ring-zinc-500',
   };
 
   const sizes = {
@@ -34,20 +25,9 @@ export function Button({
   };
 
   return (
-    <button
-      disabled={disabled || loading}
-      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
-      {...props}
-    >
+    <button disabled={disabled || loading} className={`${base} ${variants[variant]} ${sizes[size]} ${className}`} {...props}>
       {loading && (
-        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-          />
-        </svg>
+        <div className="w-4 h-4 rounded-full border-2 border-current/30 border-t-current animate-spin" />
       )}
       {children}
     </button>

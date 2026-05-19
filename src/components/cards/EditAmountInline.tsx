@@ -56,7 +56,7 @@ export function EditAmountInline({ cardId, amount, isOwnerOrShared }: EditAmount
 
   if (!isOwnerOrShared) {
     return (
-      <span className="text-2xl font-bold text-green-700">
+      <span className="text-2xl font-bold text-white">
         ₪{amount.toLocaleString('he-IL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
       </span>
     );
@@ -65,7 +65,7 @@ export function EditAmountInline({ cardId, amount, isOwnerOrShared }: EditAmount
   if (editing) {
     return (
       <div className="flex items-center gap-1">
-        <span className="text-xl font-bold text-green-700">₪</span>
+        <span className="text-xl font-bold text-white">₪</span>
         <input
           ref={inputRef}
           type="number"
@@ -74,7 +74,7 @@ export function EditAmountInline({ cardId, amount, isOwnerOrShared }: EditAmount
           onBlur={save}
           onKeyDown={handleKeyDown}
           disabled={saving}
-          className="w-24 text-xl font-bold text-green-700 border-b-2 border-blue-500 outline-none bg-transparent"
+          className="w-24 text-xl font-bold text-white border-b-2 border-indigo-500 outline-none bg-transparent"
           dir="ltr"
         />
       </div>
@@ -87,11 +87,11 @@ export function EditAmountInline({ cardId, amount, isOwnerOrShared }: EditAmount
       title={t('editAmount')}
       className="group flex items-center gap-1 hover:opacity-80 transition"
     >
-      <span className="text-2xl font-bold text-green-700">
+      <span className="text-2xl font-bold text-white">
         ₪{amount.toLocaleString('he-IL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
       </span>
       <svg
-        className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition opacity-0 group-hover:opacity-100"
+        className="w-4 h-4 text-zinc-500 group-hover:text-indigo-400 transition opacity-0 group-hover:opacity-100"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"

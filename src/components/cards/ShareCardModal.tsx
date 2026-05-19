@@ -53,7 +53,7 @@ export function ShareCardModal({ open, cardId, onClose }: ShareCardModalProps) {
 
   return (
     <Modal open={open} onClose={onClose} title={t('shareCard')}>
-      <p className="text-sm text-gray-500">{t('inviteByEmail')}</p>
+      <p className="text-sm text-zinc-500">{t('inviteByEmail')}</p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
           label={t('inviteeEmail')}

@@ -34,8 +34,8 @@ export function DeleteCardDialog({ open, cardId, cardName, onClose }: DeleteCard
 
   return (
     <Modal open={open} onClose={onClose} title={t('deleteCard')}>
-      <p className="text-gray-700">{t('deleteConfirm')}</p>
-      <p className="text-sm text-gray-500">{t('deleteWarning')}</p>
+      <p className="text-zinc-200">{t('deleteConfirm')}</p>
+      <p className="text-sm text-zinc-500">{t('deleteWarning')}</p>
       <div className="flex gap-3 justify-end pt-2">
         <Button variant="secondary" onClick={onClose}>
           {t('cancel')}
