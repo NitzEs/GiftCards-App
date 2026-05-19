@@ -57,8 +57,7 @@ export function GoogleSignInButton() {
         logo_alignment: 'left',
       });
 
-      // Also show One Tap prompt (floating overlay)
-      window.google.accounts.id.prompt();
+      // One Tap prompt disabled — causes FedCM errors in some environments
     }
 
     if (window.google?.accounts?.id) {
