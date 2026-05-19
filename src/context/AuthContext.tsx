@@ -7,6 +7,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInWithCredential,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
@@ -68,6 +70,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Handle result from signInWithRedirect (fires on page load after redirect)
+    getRedirectResult(auth).then(async (result) => {
+      if (result?.user) {
+        await upsertUserDoc(result.user);
+        applyPendingShares(result.user);
+      }
+    }).catch(() => {});
+
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -81,9 +91,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signInWithGoogle() {
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    await upsertUserDoc(result.user);
-    applyPendingShares(result.user);
+    provider.setCustomParameters({ prompt: 'select_account' });
+    // Use redirect on production (Vercel), popup on localhost
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+      await signInWithRedirect(auth, provider);
+    } else {
+      const result = await signInWithPopup(auth, provider);
+      await upsertUserDoc(result.user);
+      applyPendingShares(result.user);
+    }
   }
 
   async function signInWithGoogleToken(idToken: string) {
