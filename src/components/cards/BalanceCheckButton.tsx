@@ -40,6 +40,21 @@ export function BalanceCheckButton({ cardId, onBalanceFetched }: BalanceCheckBut
     setLoading(true);
     try {
       const idToken = await user.getIdToken();
+
+      // Try automatic balance fetch first
+      const balRes = await fetch(`/api/balance?cardId=${cardId}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+
+      if (balRes.ok) {
+        const { balance } = await balRes.json() as { balance: number };
+        await updateCardAmount(cardId, balance);
+        onBalanceFetched?.(balance);
+        showToast(`היתרה עודכנה אוטומטית: ₪${balance} ✅`);
+        return;
+      }
+
+      // Fallback: open manual modal
       const numRes = await fetch(`/api/cards/${cardId}/number`, {
         headers: { Authorization: `Bearer ${idToken}` },
       });

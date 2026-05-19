@@ -60,8 +60,6 @@ export async function fetchCardBalance(cardNumber: string): Promise<number | nul
     const resultHtml = await postRes.text();
     const resultRoot = parse(resultHtml);
 
-    // Try to find a balance amount in the response
-    // Look for patterns like "₪123.45" or "123.45 ₪" or elements with class containing "balance"
     const bodyText = resultRoot.text;
 
     // Match numbers near ₪ symbol
