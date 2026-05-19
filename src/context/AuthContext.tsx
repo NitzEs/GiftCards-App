@@ -7,6 +7,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
+  signInWithCredential,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   updateProfile,
@@ -19,6 +20,7 @@ interface AuthContextValue {
   loading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithGoogleToken: (idToken: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -28,6 +30,7 @@ const AuthContext = createContext<AuthContextValue>({
   loading: true,
   signInWithEmail: async () => {},
   signInWithGoogle: async () => {},
+  signInWithGoogleToken: async () => {},
   register: async () => {},
   signOut: async () => {},
 });
@@ -83,6 +86,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     applyPendingShares(result.user);
   }
 
+  async function signInWithGoogleToken(idToken: string) {
+    const credential = GoogleAuthProvider.credential(idToken);
+    const result = await signInWithCredential(auth, credential);
+    await upsertUserDoc(result.user);
+    applyPendingShares(result.user);
+  }
+
   async function register(email: string, password: string, displayName: string) {
     const result = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(result.user, { displayName });
@@ -95,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithEmail, signInWithGoogle, register, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signInWithEmail, signInWithGoogle, signInWithGoogleToken, register, signOut }}>
       {children}
     </AuthContext.Provider>
   );
