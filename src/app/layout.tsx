@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Heebo } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { LanguageProvider } from '@/context/LanguageContext';
@@ -22,10 +23,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="he" dir="rtl" className={`${heebo.variable} h-full antialiased`}>
-      {/* Runs before any JS module loads — clears stale Firebase redirect state
-          so the SDK cannot auto-process old signInWithRedirect attempts. */}
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: `
+      <body className="min-h-full bg-[#0f0f11]">
+        {/* Clears stale Firebase redirect state BEFORE any module runs.
+            Without this, the Firebase SDK auto-processes old
+            signInWithRedirect state from localStorage on every page load. */}
+        <Script id="clear-firebase-redirect" strategy="beforeInteractive">{`
           (function(){
             try {
               var stores = [localStorage, sessionStorage];
@@ -35,7 +37,8 @@ export default function RootLayout({
                 for (var i = 0; i < store.length; i++) {
                   var k = store.key(i) || '';
                   if (k.indexOf('firebase') === 0 &&
-                      (k.indexOf('pendingRedirect') > -1 || k.indexOf('redirectUser') > -1)) {
+                     (k.indexOf('pendingRedirect') > -1 ||
+                      k.indexOf('redirectUser')   > -1)) {
                     rem.push(k);
                   }
                 }
@@ -43,9 +46,7 @@ export default function RootLayout({
               }
             } catch(e) {}
           })();
-        ` }} />
-      </head>
-      <body className="min-h-full bg-[#0f0f11]">
+        `}</Script>
         <AuthProvider>
           <LanguageProvider>
             <ToastProvider>{children}</ToastProvider>
