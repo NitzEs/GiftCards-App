@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force Node.js runtime (not Edge) — required for outbound fetch to Google
+export const runtime = 'nodejs';
+// Never cache this route
+export const dynamic = 'force-dynamic';
+
 /**
  * Google OAuth2 Authorization Code callback.
  * Google redirects here with ?code=... after the user picks an account.
