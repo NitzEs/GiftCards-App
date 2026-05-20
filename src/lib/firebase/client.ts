@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   initializeAuth,
   getAuth,
-  browserLocalStoragePersistence,
+  browserLocalPersistence,
   browserPopupRedirectResolver,
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
@@ -43,7 +43,7 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 function buildAuth() {
   try {
     return initializeAuth(app, {
-      persistence: [browserLocalStoragePersistence],
+      persistence: [browserLocalPersistence],
       popupRedirectResolver: browserPopupRedirectResolver,
     });
   } catch {
