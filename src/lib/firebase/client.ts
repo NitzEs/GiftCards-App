@@ -1,11 +1,16 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import {
+  initializeAuth,
+  getAuth,
+  browserLocalStoragePersistence,
+  browserPopupRedirectResolver,
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// ─── Purge stale signInWithRedirect state BEFORE getAuth() runs ──────────────
-// Firebase Auth reads pendingRedirect from storage synchronously during
-// getAuth() and will silently re-trigger the old redirect flow if it finds
-// anything there. Wipe those keys here — the earliest possible moment.
+// ─── Purge stale signInWithRedirect state from localStorage/sessionStorage ───
+// Must run BEFORE initializeAuth so the SDK finds nothing to auto-process.
+// We also use browserLocalStoragePersistence only (no IndexedDB) so Firebase
+// never reads stale redirect state stored in IndexedDB from old sessions.
 if (typeof window !== 'undefined') {
   try {
     for (const store of [localStorage, sessionStorage]) {
@@ -18,12 +23,6 @@ if (typeof window !== 'undefined') {
       }
     }
   } catch { /* storage blocked */ }
-
-  // Firebase also persists redirect state in IndexedDB ('firebaseLocalStorage').
-  // Delete the whole DB so getAuth() finds nothing to auto-process.
-  try {
-    indexedDB.deleteDatabase('firebaseLocalStorage');
-  } catch { /* IDB unavailable */ }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -38,5 +37,20 @@ const firebaseConfig = {
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-export const auth = getAuth(app);
+// Use initializeAuth (not getAuth) to restrict persistence to localStorage only.
+// This means Firebase NEVER reads from IndexedDB — old redirect state stored
+// there from previous signInWithRedirect calls is completely ignored on load.
+function buildAuth() {
+  try {
+    return initializeAuth(app, {
+      persistence: [browserLocalStoragePersistence],
+      popupRedirectResolver: browserPopupRedirectResolver,
+    });
+  } catch {
+    // Already initialized (hot reload / StrictMode double-init)
+    return getAuth(app);
+  }
+}
+
+export const auth = buildAuth();
 export const db = getFirestore(app);

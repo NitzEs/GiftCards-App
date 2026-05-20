@@ -1,62 +1,106 @@
 'use client';
 
-import { useState } from 'react';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
-import { useAuth } from '@/context/AuthContext';
+import { useState, useEffect, useRef } from 'react';
+import { signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase/client';
 import { useRouter } from 'next/navigation';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/client';
 
 export function GoogleSignInButton() {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]     = useState('');
   const router = useRouter();
+  const popupRef = useRef<Window | null>(null);
 
-  async function handleClick() {
+  // Listen for the id_token message sent back by the popup callback page
+  useEffect(() => {
+    async function onMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'google-auth-token') return;
+
+      const { idToken } = event.data as { idToken: string };
+
+      try {
+        const credential = GoogleAuthProvider.credential(idToken);
+        const result = await signInWithCredential(auth, credential);
+
+        // Upsert user doc (non-critical)
+        try {
+          await setDoc(
+            doc(db, 'users', result.user.uid),
+            { email: result.user.email, displayName: result.user.displayName || '', updatedAt: serverTimestamp() },
+            { merge: true }
+          );
+        } catch { /* non-critical */ }
+
+        // Apply pending shares (fire-and-forget)
+        try {
+          const token = await result.user.getIdToken();
+          fetch('/api/share-all/apply-pending', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+        } catch { /* non-critical */ }
+
+        router.replace('/dashboard');
+      } catch (err) {
+        console.error('Firebase credential sign-in failed:', err);
+        setError('שגיאה בהתחברות — נסה שוב');
+        setLoading(false);
+      }
+    }
+
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [router]);
+
+  function handleClick() {
     setLoading(true);
     setError('');
 
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
+    const state = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    sessionStorage.setItem('google_oauth_state', state);
 
-      const result = await signInWithPopup(auth, provider);
+    // Build the Google OAuth URL — redirect_uri points to our popup-callback page
+    const params = new URLSearchParams({
+      client_id:     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+      redirect_uri:  `${window.location.origin}/auth/google-popup`,
+      response_type: 'code',
+      scope:         'openid email profile',
+      prompt:        'select_account',
+      state,
+      access_type:   'online',
+    });
 
-      // Upsert user document (non-critical)
-      try {
-        await setDoc(
-          doc(db, 'users', result.user.uid),
-          {
-            email: result.user.email,
-            displayName: result.user.displayName || '',
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-      } catch { /* non-critical */ }
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 
-      // Apply pending shares (fire-and-forget)
-      try {
-        const idToken = await result.user.getIdToken();
-        fetch('/api/share-all/apply-pending', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${idToken}` },
-        });
-      } catch { /* non-critical */ }
+    // Open a popup DIRECTLY to accounts.google.com — no Firebase handler in the middle.
+    // Google sees the user's cookies in a first-party popup context → account chooser.
+    const w = 500, h = 600;
+    const left = Math.round(window.screenX + (window.outerWidth  - w) / 2);
+    const top  = Math.round(window.screenY + (window.outerHeight - h) / 2);
 
-      router.replace('/dashboard');
-    } catch (err: any) {
-      // User closed the popup — silent fail
-      if (err?.code === 'auth/popup-closed-by-user' ||
-          err?.code === 'auth/cancelled-popup-request') {
-        setLoading(false);
-        return;
-      }
-      console.error('Google sign-in error:', err);
-      setError('שגיאה בהתחברות — נסה שוב');
-      setLoading(false);
+    const popup = window.open(
+      url,
+      'google-signin',
+      `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=yes,scrollbars=yes,resizable=yes`
+    );
+
+    if (!popup) {
+      // Popup blocked — fall back to full-page redirect
+      window.location.href = url.replace(
+        `${window.location.origin}/auth/google-popup`,
+        `${window.location.origin}/api/auth/google`
+      );
+      return;
     }
+
+    popupRef.current = popup;
+
+    // Detect if user closes popup without finishing
+    const timer = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(timer);
+        setLoading(false);
+      }
+    }, 500);
   }
 
   return (
