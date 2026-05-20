@@ -18,6 +18,12 @@ if (typeof window !== 'undefined') {
       }
     }
   } catch { /* storage blocked */ }
+
+  // Firebase also persists redirect state in IndexedDB ('firebaseLocalStorage').
+  // Delete the whole DB so getAuth() finds nothing to auto-process.
+  try {
+    indexedDB.deleteDatabase('firebaseLocalStorage');
+  } catch { /* IDB unavailable */ }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
