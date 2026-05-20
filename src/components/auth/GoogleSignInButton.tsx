@@ -1,30 +1,93 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
+/* ── GIS type shim ──────────────────────────────────────────────────── */
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        oauth2: {
+          initTokenClient: (config: {
+            client_id: string;
+            scope: string;
+            callback: (response: { access_token?: string; error?: string }) => void;
+            error_callback?: (error: { type: string }) => void;
+          }) => { requestAccessToken: () => void };
+        };
+      };
+    };
+  }
+}
+
 export function GoogleSignInButton() {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogleToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const tokenClientRef = useRef<{ requestAccessToken: () => void } | null>(null);
+  const gisReady = useRef(false);
 
-  async function handleClick() {
+  useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+
+    function setup() {
+      if (!window.google || gisReady.current) return;
+      gisReady.current = true;
+
+      tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId!,
+        scope: 'openid email profile',
+        callback: async (response) => {
+          if (!response.access_token) {
+            setLoading(false);
+            setError('שגיאה בהתחברות — נסה שוב');
+            return;
+          }
+          try {
+            await signInWithGoogleToken(null, response.access_token);
+            // Navigation handled by useEffect in the form (user state change)
+          } catch {
+            setError('שגיאה בהתחברות — נסה שוב');
+          } finally {
+            setLoading(false);
+          }
+        },
+        error_callback: (err) => {
+          setLoading(false);
+          if (err.type !== 'popup_closed' && err.type !== 'popup_failed_to_open') {
+            setError('שגיאה בהתחברות — נסה שוב');
+          }
+        },
+      });
+    }
+
+    // GIS may already be loaded (if script was added earlier)
+    if (window.google) {
+      setup();
+    } else {
+      const existing = document.querySelector<HTMLScriptElement>(
+        'script[src*="accounts.google.com/gsi/client"]'
+      );
+      if (existing) {
+        existing.addEventListener('load', setup, { once: true });
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = setup;
+        document.head.appendChild(script);
+      }
+    }
+  }, [signInWithGoogleToken]);
+
+  function handleClick() {
+    if (!tokenClientRef.current) return;
     setError('');
     setLoading(true);
-    try {
-      await signInWithGoogle();
-    } catch (err: unknown) {
-      const code = (err as { code?: string })?.code;
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-        // silent
-      } else if (code === 'auth/popup-blocked') {
-        setError('הדפדפן חסם את החלון — אפשר חלונות קופצים ונסה שוב');
-      } else {
-        setError('שגיאה בהתחברות — נסה שוב');
-      }
-    } finally {
-      setLoading(false);
-    }
+    tokenClientRef.current.requestAccessToken();
   }
 
   return (

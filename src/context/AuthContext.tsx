@@ -22,7 +22,7 @@ interface AuthContextValue {
   loading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
-  signInWithGoogleToken: (idToken: string) => Promise<void>;
+  signInWithGoogleToken: (idToken: string | null, accessToken?: string | null) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -96,8 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     applyPendingShares(result.user);
   }
 
-  async function signInWithGoogleToken(idToken: string) {
-    const credential = GoogleAuthProvider.credential(idToken);
+  async function signInWithGoogleToken(idToken: string | null, accessToken?: string | null) {
+    const credential = GoogleAuthProvider.credential(idToken, accessToken ?? undefined);
     const result = await signInWithCredential(auth, credential);
     await upsertUserDoc(result.user);
     applyPendingShares(result.user);
