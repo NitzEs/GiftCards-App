@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   }
 
-  // Google sign-in is handled directly in GoogleSignInButton via OAuth2 redirect
+  // Google sign-in is handled directly in GoogleSignInButton via signInWithPopup
   async function signInWithGoogle() {}
 
   async function signInWithGoogleToken(idToken: string | null, accessToken?: string | null) {

@@ -1,31 +1,62 @@
 'use client';
 
 import { useState } from 'react';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { auth } from '@/lib/firebase/client';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase/client';
 
 export function GoogleSignInButton() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const router = useRouter();
 
-  function handleClick() {
+  async function handleClick() {
     setLoading(true);
-    console.log('[GiftCards] GoogleSignInButton v3 — direct OAuth2 code flow');
+    setError('');
 
-    const state = Math.random().toString(36).substring(2) + Date.now().toString(36);
-    sessionStorage.setItem('google_oauth_state', state);
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
 
-    // Use Authorization Code flow (server-side exchange) so Google sees
-    // a proper first-party context and shows the account chooser.
-    const params = new URLSearchParams({
-      client_id:    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-      redirect_uri: `${window.location.origin}/api/auth/google`,
-      response_type: 'code',
-      scope:        'openid email profile',
-      prompt:       'select_account',
-      state,
-      access_type:  'online',
-    });
+      const result = await signInWithPopup(auth, provider);
 
-    window.location.href =
-      `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+      // Upsert user document (non-critical)
+      try {
+        await setDoc(
+          doc(db, 'users', result.user.uid),
+          {
+            email: result.user.email,
+            displayName: result.user.displayName || '',
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch { /* non-critical */ }
+
+      // Apply pending shares (fire-and-forget)
+      try {
+        const idToken = await result.user.getIdToken();
+        fetch('/api/share-all/apply-pending', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+      } catch { /* non-critical */ }
+
+      router.replace('/dashboard');
+    } catch (err: any) {
+      // User closed the popup — silent fail
+      if (err?.code === 'auth/popup-closed-by-user' ||
+          err?.code === 'auth/cancelled-popup-request') {
+        setLoading(false);
+        return;
+      }
+      console.error('Google sign-in error:', err);
+      setError('שגיאה בהתחברות — נסה שוב');
+      setLoading(false);
+    }
   }
 
   return (
@@ -45,8 +76,9 @@ export function GoogleSignInButton() {
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
         )}
-        <span>{loading ? 'מתחבר...' : 'המשך עם Google ★'}</span>
+        <span>{loading ? 'מתחבר...' : 'המשך עם Google'}</span>
       </button>
+      {error && <p className="text-red-400 text-xs text-center">{error}</p>}
     </div>
   );
 }
