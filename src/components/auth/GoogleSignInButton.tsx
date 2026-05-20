@@ -1,28 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
 
 export function GoogleSignInButton() {
-  const { signInWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  async function handleClick() {
-    setError('');
+  function handleClick() {
     setLoading(true);
-    try {
-      await signInWithGoogle();
-      // Page will navigate away — loading stays true intentionally
-    } catch (err: unknown) {
-      const code = (err as { code?: string })?.code;
-      setLoading(false);
-      if (code === 'auth/popup-blocked') {
-        setError('הדפדפן חסם את החלון — אפשר חלונות קופצים ונסה שוב');
-      } else if (code !== 'auth/cancelled-popup-request') {
-        setError('שגיאה בהתחברות — נסה שוב');
-      }
-    }
+
+    // Generate & save CSRF state
+    const state = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    sessionStorage.setItem('google_oauth_state', state);
+
+    const params = new URLSearchParams({
+      client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+      redirect_uri: `${window.location.origin}/auth/callback`,
+      response_type: 'token',
+      scope: 'openid email profile',
+      prompt: 'select_account',
+      state,
+    });
+
+    // Navigate directly to accounts.google.com — no Firebase handler in between
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
   }
 
   return (
@@ -44,7 +44,6 @@ export function GoogleSignInButton() {
         )}
         <span>{loading ? 'מתחבר...' : 'המשך עם Google'}</span>
       </button>
-      {error && <p className="text-xs text-red-400 text-center">{error}</p>}
     </div>
   );
 }
