@@ -91,9 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signInWithGoogle() {
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    await upsertUserDoc(result.user);
-    applyPendingShares(result.user);
+    provider.setCustomParameters({ prompt: 'select_account' });
+    await signInWithRedirect(auth, provider);
+    // Result is handled by getRedirectResult in the useEffect above
   }
 
   async function signInWithGoogleToken(idToken: string | null, accessToken?: string | null) {
