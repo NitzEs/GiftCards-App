@@ -8,21 +8,23 @@ export function GoogleSignInButton() {
   function handleClick() {
     setLoading(true);
 
-    // Generate & save CSRF state
     const state = Math.random().toString(36).substring(2) + Date.now().toString(36);
     sessionStorage.setItem('google_oauth_state', state);
 
+    // Use Authorization Code flow (server-side exchange) so Google sees
+    // a proper first-party context and shows the account chooser.
     const params = new URLSearchParams({
-      client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-      redirect_uri: `${window.location.origin}/auth/callback`,
-      response_type: 'token',
-      scope: 'openid email profile',
-      prompt: 'select_account',
+      client_id:    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+      redirect_uri: `${window.location.origin}/api/auth/google`,
+      response_type: 'code',
+      scope:        'openid email profile',
+      prompt:       'select_account',
       state,
+      access_type:  'online',
     });
 
-    // Navigate directly to accounts.google.com — no Firebase handler in between
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+    window.location.href =
+      `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
   }
 
   return (

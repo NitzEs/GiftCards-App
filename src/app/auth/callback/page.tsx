@@ -4,38 +4,41 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
+/**
+ * Handles the final step of Google Sign-In:
+ * – Reads the id_token from the short-lived cookie set by /api/auth/google
+ * – Signs into Firebase via signInWithGoogleToken
+ * – Redirects to /dashboard on success
+ */
 export default function GoogleCallbackPage() {
   const { signInWithGoogleToken } = useAuth();
   const router = useRouter();
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const hash = window.location.hash;
-    const query = window.location.search;
+    // Read cookie set by /api/auth/google
+    const cookies = Object.fromEntries(
+      document.cookie.split(';').map((c) => {
+        const [k, ...v] = c.trim().split('=');
+        return [k, decodeURIComponent(v.join('='))];
+      })
+    );
 
-    // Parse token from fragment (#access_token=...) or query (?access_token=...)
-    const params = new URLSearchParams(hash ? hash.slice(1) : query.slice(1));
-    const accessToken = params.get('access_token');
-    const errorParam = params.get('error');
+    const idToken = cookies['google_id_token'];
 
-    if (errorParam || !accessToken) {
+    if (!idToken) {
+      // Nothing to process — go back to login
       router.replace('/login');
       return;
     }
 
-    // Verify CSRF state
-    const returnedState = params.get('state');
-    const savedState = sessionStorage.getItem('google_oauth_state');
-    if (returnedState && savedState && returnedState !== savedState) {
-      setError('שגיאת אבטחה — נסה שוב');
-      setTimeout(() => router.replace('/login'), 2000);
-      return;
-    }
-    sessionStorage.removeItem('google_oauth_state');
+    // Consume the cookie immediately
+    document.cookie = 'google_id_token=; Max-Age=0; path=/';
 
-    signInWithGoogleToken(null, accessToken)
+    signInWithGoogleToken(idToken, null)
       .then(() => router.replace('/dashboard'))
-      .catch(() => {
+      .catch((err) => {
+        console.error('Firebase sign-in failed:', err);
         setError('שגיאה בהתחברות — נסה שוב');
         setTimeout(() => router.replace('/login'), 2500);
       });
