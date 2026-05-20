@@ -7,6 +7,7 @@ export function GoogleSignInButton() {
 
   function handleClick() {
     setLoading(true);
+    console.log('[GiftCards] GoogleSignInButton v3 — direct OAuth2 code flow');
 
     const state = Math.random().toString(36).substring(2) + Date.now().toString(36);
     sessionStorage.setItem('google_oauth_state', state);
