@@ -2,6 +2,25 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
+// ─── Purge stale signInWithRedirect state BEFORE getAuth() runs ──────────────
+// Firebase Auth reads pendingRedirect from storage synchronously during
+// getAuth() and will silently re-trigger the old redirect flow if it finds
+// anything there. Wipe those keys here — the earliest possible moment.
+if (typeof window !== 'undefined') {
+  try {
+    for (const store of [localStorage, sessionStorage]) {
+      for (let i = store.length - 1; i >= 0; i--) {
+        const k = store.key(i) ?? '';
+        if (k.startsWith('firebase') &&
+            (k.includes('pendingRedirect') || k.includes('redirectUser'))) {
+          store.removeItem(k);
+        }
+      }
+    }
+  } catch { /* storage blocked */ }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
