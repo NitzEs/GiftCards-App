@@ -6,9 +6,6 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   signInWithCredential,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
@@ -70,14 +67,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Handle result from signInWithRedirect (fires on page load after redirect)
-    getRedirectResult(auth).then(async (result) => {
-      if (result?.user) {
-        await upsertUserDoc(result.user);
-        applyPendingShares(result.user);
-      }
-    }).catch(() => {});
-
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -89,12 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   }
 
-  async function signInWithGoogle() {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    await signInWithRedirect(auth, provider);
-    // Result is handled by getRedirectResult in the useEffect above
-  }
+  // Google sign-in is handled directly in GoogleSignInButton via OAuth2 redirect
+  async function signInWithGoogle() {}
 
   async function signInWithGoogleToken(idToken: string | null, accessToken?: string | null) {
     const credential = GoogleAuthProvider.credential(idToken, accessToken ?? undefined);
