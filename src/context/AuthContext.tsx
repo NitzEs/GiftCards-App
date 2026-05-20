@@ -67,6 +67,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Purge any stale Firebase redirect state left over from previous
+    // signInWithRedirect attempts. Without this, Firebase SDK auto-processes
+    // the stored state on every page load and hijacks navigation.
+    try {
+      for (const store of [localStorage, sessionStorage]) {
+        const toRemove: string[] = [];
+        for (let i = 0; i < store.length; i++) {
+          const k = store.key(i) ?? '';
+          if (k.startsWith('firebase') &&
+              (k.includes('pendingRedirect') || k.includes('redirectUser'))) {
+            toRemove.push(k);
+          }
+        }
+        toRemove.forEach((k) => store.removeItem(k));
+      }
+      // Also strip #stck_rt= from the URL if present
+      if (window.location.hash.includes('stck_rt')) {
+        window.history.replaceState(
+          null, '', window.location.pathname + window.location.search
+        );
+      }
+    } catch { /* storage may be blocked in some browsers */ }
+
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
